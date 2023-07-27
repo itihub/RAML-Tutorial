@@ -1,0 +1,578 @@
+#%RAML 1.0
+# 输入根
+title: Learn RAML API
+baseUri: http://api.e-bookmobile.com/{version}
+version: v1
+
+
+# 自定义类型 使用名称引用 （优点：复用代码）
+types:
+  song: |
+    {
+      "type": "object",
+      "$schema": "http://json-schema.org/draft-03/schema",
+      "id": "http://jsonschema.net",
+      "required": true,
+      "properties": {
+        "songTitle": {
+          "type": "string",
+          "required": true,
+          "description": "歌名"
+        },
+        "albumId": {
+          "type": "string",
+          "required": true,
+          "minLength": 36,
+          "maxLength": 36,
+          "description": "专辑 ID"
+        }
+      }
+    }
+  
+  artist: |
+    {
+      "type": "object",
+      "$schema": "http://json-schema.org/draft-03/schema",
+      "required":false,
+      "properties": {
+        "artistName": {
+          "type": "string",
+          "required":true,
+          "description": "艺术家姓名"
+        },
+        "description": {
+          "type": "string",
+          "required": false,
+          "description": "描述"
+        },
+        "imageURL": {
+          "type": "string",
+          "required": false,
+          "description": "图像地址"
+        }
+      }
+    }
+    
+  album: |
+    {
+      "type": "object",
+      "$schema": "http://json-schema.org/draft-03/schema",
+      "required":false,
+      "properties": {
+        "albumId": {
+          "type": "string",
+          "required":true,
+          "minLength": 36,
+          "maxLength": 36,
+          "description": "专辑ID"
+        },
+        "albumName": {
+          "type": "string",
+          "required": true,
+          "description": "专辑名称"
+        },
+        "year": {
+          "type": "string",
+          "required": false,
+          "description": "年"
+        },
+        "iamgeURL": {
+          "type": "string",
+          "required": false,
+          "description": "图像URL"
+        },
+        "genreCode": {
+          "type": "string",
+          "required": true,
+          "description": "流派代码"
+        },
+        "artistId": {
+          "type": "string",
+          "required":true,
+          "minLength": 36,
+          "maxLength": 36,
+          "description": "艺术家ID"
+        }
+      }
+    }
+  
+# 资源类型抽象
+# 应用场景：试图表示可以从业务模型推断出的资源，它可能与 CRUD 模型类似。给定一种资源，您可以创建一个新资源、检索其中一个或全部资源以及更新或删除现有资源
+resourceTypes:
+  # 集合
+  collection:
+    description: 自动点唱机中可用 <<resourcePathName>> 的集合
+    get:
+      description: 根据 <<resourcePathName>> 标题获取歌曲列表
+      responses:
+        200:
+          body:
+            application/json:
+              # 占位符表示集合
+              example: |
+                <<exampleCollection>>
+    post:
+      description: |
+        将新 <<resourcePathName|!singularize>> 添加到点唱机
+      queryParameters:
+        access_token:
+          description: 身份验证应用程序提供的访问令牌
+          example: AABBCCDD
+          required: true
+          type: string
+      body:
+        application/json:
+          # 引用类型
+          type: <<resourcePathName|!singularize>> 
+          example: |
+            <<exampleItem>>
+      responses:
+        200:
+          body:
+            application/json:
+              example: |
+                { "message": "The <<resourcePathName|!singularize>> has been properly entered" }
+  # 集合元素
+  collection-item:
+    description: 代表 <<resourcePathName|!singularize>> 的实体
+    get:
+      description: |
+        获取 <<resourcePathName|!singularize>>Id =
+        {<<resourcePathName|!singularize>>Id} 的 <<resourcePathName|!singularize>>
+      responses:
+        200:
+          body:
+            application/json:
+              example: |
+                <<exampleItem>>
+        404:
+          body:
+            application/json:
+              example: |
+                {"message": "<<resourcePathName|!singularize>> not found" }
+
+  readOnlyCollection:
+    description: Collection of available <<resourcePathName>> in Jukebox.
+    get:
+      description: Get a list of <<resourcePathName>>.
+      responses:
+        200:
+          body:
+            application/json:
+              example: |
+                <<exampleCollection>>
+
+
+# 特征
+traits:
+  # 搜索参数
+  searchable:        
+    queryParameters:
+      query:
+        description: |
+          JSON array [{"field1","value1","operator1"},{"field2","value2","operator2"},...,{"fieldN","valueN","operatorN"}] <<description>>
+        example: |
+          <<example>>
+  # 排序参数
+  orderable:
+    queryParameters:
+      orderBy:
+        description: |
+          按字段排序: <<fieldsList>>
+        type: string
+        required: false
+      order:
+        description: 方向
+        enum: [desc, asc]
+        default: desc
+        required: false
+  # 分页参数
+  pageable:
+    queryParameters:
+      offset:
+        description: 通过指定查询的偏移值跳过多个元素
+        type: integer
+        required: false
+        example: 20
+        default: 0
+      limit:
+        description: 限制响应中的元素数量
+        type: integer
+        required: false
+        example: 80
+        default: 10
+
+# 资源
+
+/users:
+  /books:
+    get:
+      description: 检索一本书
+      # 查询参数声明
+      queryParameters: 
+        author:
+           # 显示名称
+          displayName: Author
+          type: string
+          description: 作者的全名
+          example: Mary Roach
+          # 是否必填
+          required: false
+        publicationYear:
+          displayName: Pub Year
+          type: number
+          description: 发布年份
+          example: 1984
+          required: false
+        rating:
+          displayName: Rating
+          type: number
+          description: 用户提交的平均评分（1-5）
+          example: 3.14
+          required: false
+        isbn:
+          displayName: ISBN
+          type: string
+          minLength: 10
+          example: "0321736079"
+      # 响应声明
+      responses:
+        # 状态码
+        200:
+          # 报文
+          body:
+            application/json:
+              # 示例
+              example: |
+                {
+                  "data": {
+                    "id": "SbBGk",
+                    "title": "Stiff: The Curious Lives of Human Cadavers",
+                    "description": null,
+                    "datetime": 1341533193,
+                    "genre": "science",
+                    "author": "Mary Roach",
+                    "link": "http://e-bookmobile.com/books/Stiff"
+                  },
+                  "success": true,
+                  "status": 200
+                }
+    /{bookTitle}:
+      get:
+
+/songs:
+  description: 自动点唱机中可用歌曲的集合
+  get:
+    description: 根据歌曲标题获取歌曲列表
+    # 请求参数声明
+    queryParameters: 
+      songTitle:
+        description: 要搜索的歌曲的标题（不区分大小写，不需要匹配整个标题）
+        displayName: Title
+        required: true
+        minLength: 3
+        type: string
+        example: "Get L"
+      query:
+        description: |
+          JSON array [{"field1","value1","operator1"},{"field2","value2","operator2"},...,{"fieldN","valueN","operatorN"}] with valid searchable fields: songTitle
+        example: |
+          ["songTitle", "Get L", "like"]
+      orderBy:
+        description: |
+          按字段排序: ["songTitle"]
+        type: string
+        required: false
+      order:
+        description: 排序方向
+        enum: [desc, asc]
+        default: desc
+        required: false
+      offset:
+        description: 通过指定查询的偏移值跳过多个元素
+        type: integer
+        required: false
+        example: 20
+        default: 0
+      limit:
+        description: 限制响应中的元素数量
+        type: integer
+        required: false
+        example: 80
+        default: 10
+    # 响应声明
+    responses:
+      200:
+        body: 
+          application/json:
+            example: |
+              {
+                "songs": [
+                  {
+                    "songId": "550e8400-e29b-41d4-a716-446655440000",
+                    "songTitle": "Get Lucky"
+                  },
+                  {
+                    "songId": "550e8400-e29b-41d4-a716-446655440111",
+                    "songTitle": "Loose yourself to dance"
+                  },
+                  {
+                    "songId": "550e8400-e29b-41d4-a716-446655440222",
+                    "songTitle": "Gio sorgio by Moroder"
+                  }
+                ]
+              }
+  post:
+    body: 
+      application/json:
+        # 将JSON Shema定义为通用的，使用定义名称来引用 (复用代码)
+        # type: song
+        # 使用JSON Shema用来描述JSON格式
+        type: |
+          {
+            "type": "object",
+            "$schema": "http://json-schema.org/draft-03/schema",
+            "id": "http://jsonschema.net",
+            "required": true,
+            "properties": {
+              "songTitle": {
+                "type": "string",
+                "required": true,
+                "description": "歌名"
+              },
+              "albumId": {
+                "type": "string",
+                "required": true,
+                "minLength": 36,
+                "maxLength": 36,
+                "description": "专辑ID"
+              }
+            }
+          }
+        example: |
+          {
+            "songTitle": "Get Lucky",
+            "albumId": "183100e3-0e2b-4404-a716-66104d440550"
+          }
+  /{songId}:
+    description: 歌曲实体
+    get:
+      description: 获取带有 `songId = {songId}` 的歌曲
+      # 声明响应
+      responses:
+        # 状态码
+        200:
+          # 报文
+          body:
+            application/json:
+              example: |
+                {
+                  "songId": "550e8400-e29b-41d4-a716-446655440000",
+                  "songTitle": "Get Lucky",
+                  "duration": "6:07",
+                  "artist": {
+                    "artistId": "110e8300-e32b-41d4-a716-664400445500"
+                    "artistName": "Daft Punk",
+                    "imageURL": "http://travelhymns.com/wp-content/uploads/2013/06/random-access-memories1.jpg"
+                  },
+                  "album": {
+                    "albumId": "183100e3-0e2b-4404-a716-66104d440550",
+                    "albumName": "Random Access Memories",
+                    "imageURL": "http://upload.wikimedia.org/wikipedia/en/a/a7/Random_Access_Memories.jpg"
+                  }
+                }
+        # 状态码
+        404:
+          # 报文
+          body:
+            application/json:
+              example: |
+                {"message": "Song not found"}
+    /file-content:
+      description: 客户端要复制的文件
+      get:
+        description: 获取文件内容
+        responses:
+          200:
+            body:
+              binary/octet-stream:
+                example: !include heybulldog.mp3
+      post:
+        description: |
+          输入现有歌曲实体的文件内容。
+  
+           使用“binary/octet-stream”内容类型指定来自任何使用者（Web 浏览器除外）的内容。
+           使用“multipart-form/data”内容类型上传文件，该文件的内容将成为文件内容
+        # 请求报文声明
+        body:
+          binary/octet-stream:
+          multipart/form-data:
+            properties:
+              file:
+                description: 待上传的文件
+                required: true
+                type: file
+
+/artists:
+    type: 
+      collection:
+        exampleCollection: |
+          [
+            {
+              "artistId": "110e8300-e32b-41d4-a716-664400445500",
+              "artistName": "Daft Punk",
+              "description": "French electronic music duo consisting of musicians Guy-Manuel de Homem-Christo and Thomas Bangalter",
+              "imageURL": "http://travelhymns.com/wp-content/uploads/2013/06/random-access-memories1.jpg",
+              "nationality": {
+                "countryCode": "FRA",
+                "countryName": "France"
+              }
+            },
+            {
+              "artistId": "110e8300-e32b-41d4-a716-229932554400",
+              "artistName": "Pink Floyd",
+              "description": "English rock band that achieved international acclaim with their progressive and psychedelic music.",
+              "imageURL": "http://www.billboard.com/files/styles/promo_650/public/stylus/1251869-pink-floyd-reunions-617-409.jpg",
+              "nationality": {
+                "countryCode": "ENG",
+                "countryName": "England"
+              }
+            },
+            {
+              "artistId": "11032be3-41d4-4455-a716-664400a71600",
+              "artistName": "Radiohead",
+              "description": " English rock band from Abingdon, Oxfordshire, formed in 1985",
+              "imageURL": "http://www.wired.com/images_blogs/photos/uncategorized/2007/10/01/radiohead.jpg",
+              "nationality": {
+                "countryCode": "ENG",
+                "countryName": "England"
+              }
+            }
+          ]
+        exampleItem: |
+          {
+            "artistName": "Daft Punk",
+            "description": "French electronic music duo consisting of musicians Guy-Manuel de Homem-Christo and Thomas Bangalter",
+            "imageURL": "http://travelhymns.com/wp-content/uploads/2013/06/random-access-memories1.jpg"
+          }
+    get:
+      is: [
+            searchable: {description: "with valid searchable fields: songTitle", example: "[\"songTitle\", \"Get L\", \"like\"]"},
+            orderable: {fieldsList: "songTitle"},
+            pageable
+        ]
+    /{artistId}:
+      type: 
+        collection-item:
+          exampleItem: |
+            {
+              "songId": "550e8400-e29b-41d4-a716-446655440000",
+              "songTitle": "Get Lucky
+              }
+            }
+      /albums:
+        type: 
+          readOnlyCollection:
+            exampleCollection: | 
+              [
+                {
+                  "albumId": "183100e3-0e2b-4404-a716-66104d440550",
+                  "albumName": "Random Access Memories",
+                  "imageURL": "http://upload.wikimedia.org/wikipedia/en/a/a7/Random_Access_Memories.jpg"
+                }
+              ]
+        description: 属于艺术家的专辑集
+        get:
+          description: 获取特定艺术家的专辑列表
+          is: [
+                orderable: {fieldsList: "albumName"}, pageable
+              ]
+        
+/albums:
+  type: 
+    collection:
+      exampleCollection: |
+        [
+          {
+            "albumId": "183100e3-0e2b-4404-a716-66104d440550",
+            "albumName": "Random Access Memories",
+            "imageURL": "http://upload.wikimedia.org/wikipedia/en/a/a7/Random_Access_Memories.jpg",
+            "artistId": "110e8300-e32b-41d4-a716-664400445500",
+            "genre": {
+              "countryCode": "ELE",
+              "countryName": "Electronic"
+            }
+          }
+        ]
+      exampleItem: |
+        {
+          "albumId": "183100e3-0e2b-4404-a716-66104d440550",
+          "albumName": "Random Access Memories",
+          "year": "2013",
+          "imageURL": "http://upload.wikimedia.org/wikipedia/en/a/a7/Random_Access_Memories.jpg",
+          "genreCode": "ELE",
+          "artistId": "110e8300-e32b-41d4-a716-664400445500"
+        }
+  get:
+    is: [
+          searchable: {description: "with valid searchable fields: genreCode", example: "[\"genreCode\", \"ELE\", \"equals\"]"},
+          orderable: {fieldsList: "albumName, genre"},
+          pageable
+        ]
+  /{albumId}:
+    type:
+      collection-item: 
+        exampleItem: |
+          {
+            "albumId": "183100e3-0e2b-4404-a716-66104d440550",
+            "albumName": "Random Access Memories",
+            "year": "2013",
+            "genre": "Electric Funk",
+            "imageURL": "http://upload.wikimedia.org/wikipedia/en/a/a7/Random_Access_Memories.jpg",
+            "genre": {
+              "countryCode": "ELE",
+              "countryName": "Electronict"
+            },
+            "songs": [
+              {
+                "songId": "550e8400-e29b-41d4-a716-446655440000",
+                "songTitle": "Get Lucky"
+              },
+              {
+                "songId": "550e8400-e29b-41d4-a716-446655440111",
+                "songTitle": "Loose yourself to dance"
+              },
+              {
+                "songId": "550e8400-e29b-41d4-a716-446655440222",
+                "songTitle": "Gio sorgio by Moroder"
+              }
+            ],
+            "artist": {
+              "artistId": "110e8300-e32b-41d4-a716-664400445500",
+              "artistName": "Daft Punk",
+              "imageURL": "http://travelhymns.com/wp-content/uploads/2013/06/random-access-memories1.jpg"
+            }
+          }
+    /songs:
+      type:
+        readOnlyCollection:
+          exampleCollection: |
+            [
+              {
+                "songId": "550e8400-e29b-41d4-a716-446655440000",
+                "songTitle": "Get Lucky"
+              },
+              {
+                "songId": "550e8400-e29b-41d4-a716-446655440111",
+                "songTitle": "Loose yourself to dance"
+              },
+              {
+                "songId": "550e8400-e29b-41d4-a716-446655440222",
+                "songTitle": "Gio sorgio by Moroder"
+              }
+            ]
+      get:
+        is: [orderable: {fieldsList: "songTitle"}]
+        description: 使用 `albumId = {albumId}` 获取专辑的歌曲列表
+
+
